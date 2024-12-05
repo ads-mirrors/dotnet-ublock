@@ -561,11 +561,6 @@ async function filteringModesToDNR(modes) {
 /******************************************************************************/
 
 async function defaultRulesetsFromLanguage() {
-    const [ out, rulesetDetails ] = await Promise.all([
-        dnr.getEnabledRulesets(),
-        getRulesetDetails(),
-    ]);
-
     const dropCountry = lang => {
         const pos = lang.indexOf('-');
         if ( pos === -1 ) { return lang; }
@@ -583,7 +578,13 @@ async function defaultRulesetsFromLanguage() {
         `\\b(${Array.from(langSet).join('|')})\\b`
     );
 
+    const rulesetDetails = await getRulesetDetails();
+    const out = [];
     for ( const [ id, details ] of rulesetDetails ) {
+        if ( details.enabled ) {
+            out.push(id);
+            continue;
+        }
         if ( typeof details.lang !== 'string' ) { continue; }
         if ( reTargetLang.test(details.lang) === false ) { continue; }
         out.push(id);
