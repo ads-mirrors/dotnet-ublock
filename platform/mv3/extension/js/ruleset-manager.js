@@ -622,7 +622,9 @@ async function patchDefaultRulesets() {
     const enabledRulesets = new Set(rulesetConfig.enabledRulesets);
     toAdd.forEach(id => enabledRulesets.add(id));
     toRemove.forEach(id => enabledRulesets.delete(id));
-    rulesetConfig.enabledRulesets = Array.from(enabledRulesets);
+    const patchedRulesets = Array.from(enabledRulesets);
+    ubolLog(`Patched rulesets: ${rulesetConfig.enabledRulesets} => ${patchedRulesets}`);
+    rulesetConfig.enabledRulesets = patchedRulesets;
 }
 
 /******************************************************************************/
