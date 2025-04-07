@@ -369,9 +369,6 @@ export class ScriptletFilteringEngineEx extends ScriptletFilteringEngine {
         if ( details === undefined ) { return; }
         if ( logger.enabled !== true ) { return; }
         if ( Array.isArray(details.filters) === false ) { return; }
-        const filters = details.filters.map(a =>
-            Object.assign({ source: 'extended' }, a)
-        );
         µb.filteringContext
             .duplicate()
             .fromTabId(request.tabId)
@@ -379,7 +376,7 @@ export class ScriptletFilteringEngineEx extends ScriptletFilteringEngine {
             .setType('scriptlet')
             .setURL(request.url)
             .setDocOriginFromURL(request.url)
-            .setFilter(filters)
+            .setFilter(details.filters.map(a => ({ source: 'extended', raw: a })))
             .toLogger();
     }
 }

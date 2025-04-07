@@ -116,7 +116,7 @@ const requote = s => {
 const decompile = (json, isException) => {
     const prefix = isException ? '#@#' : '##';
     const args = JSON.parse(json);
-    return { raw: `${prefix}+js(${args.map(s => requote(s)).join(', ')})` };
+    return `${prefix}+js(${args.map(s => requote(s)).join(', ')})`;
 };
 
 /******************************************************************************/
@@ -125,7 +125,7 @@ export class ScriptletFilteringEngine {
     constructor() {
         this.acceptedCount = 0;
         this.discardedCount = 0;
-        this.scriptletDB = new StaticExtFilteringHostnameDB(VERSION);
+        this.scriptletDB = new StaticExtFilteringHostnameDB();
         this.duplicates = new Set();
     }
 
@@ -217,8 +217,11 @@ export class ScriptletFilteringEngine {
         this.scriptletDB.retrieveRegexBased(all, hostname, request.url);
         const entity = entityFromHostname(hostname, domain);
         this.scriptletDB.retrieveSpecifics(all, entity, request.url);
+        const visitedAncestors = [];
         for ( const ancestor of ancestors ) {
             const { domain, hostname } = ancestor;
+            if ( visitedAncestors.includes(hostname) ) { continue; }
+            visitedAncestors.push(hostname);
             this.scriptletDB.retrieveSpecifics(all, `${hostname}>>`, request.url);
             const entity = entityFromHostname(hostname, domain);
             if ( entity !== '' ) {
@@ -229,7 +232,7 @@ export class ScriptletFilteringEngine {
 
         // Wholly disable scriptlet injection?
         if ( all.has('-[]') ) {
-            return { filter: { raw: '#@#+js()' } };
+            return { filters: [ '#@#+js()' ] };
         }
 
         // Split filters in different groups

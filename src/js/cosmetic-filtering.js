@@ -607,11 +607,8 @@ CosmeticFilteringEngine.prototype.removeFromSelectorCache = function(
     for ( const [ hostname, item ] of this.selectorCache ) {
         if ( targetHostname !== '*' ) {
             if ( hostname.endsWith(targetHostname) === false ) { continue; }
-            if (
-                hostname.length !== targetHostnameLength &&
-                hostname.charAt(hostname.length - targetHostnameLength - 1) !== '.'
-            ) {
-                continue;
+            if ( hostname.length !== targetHostnameLength ) {
+                if ( hostname.at(-1) !== '.' ) { continue; }
             }
         }
         item.remove(type);
@@ -764,78 +761,78 @@ CosmeticFilteringEngine.prototype.retrieveSpecificSelectors = function(
         options.noGenericCosmeticFiltering !== true
     ) {
         // Cached cosmetic filters: these are always declarative.
-        const specifics = new Set();
+        const specificSet = new Set();
         if ( cacheEntry !== undefined ) {
-            cacheEntry.retrieveCosmetic(specifics, out.genericCosmeticHashes = []);
+            cacheEntry.retrieveCosmetic(specificSet, out.genericCosmeticHashes = []);
             if ( cacheEntry.disableSurveyor ) {
                 out.disableSurveyor = true;
             }
         }
 
-        const all = new Set();
+        const allSet = new Set();
         // Retrieve filters with a non-empty hostname
-        this.specificFilters.retrieveSpecifics(all, hostname, request.url);
+        this.specificFilters.retrieveSpecifics(allSet, hostname, request.url);
         // Retrieve filters with a entity-based hostname value
         const entity = entityFromHostname(hostname, request.domain);
-        this.specificFilters.retrieveSpecifics(all, entity, request.url);
+        this.specificFilters.retrieveSpecifics(allSet, entity, request.url);
         // Retrieve filters with an empty hostname
-        this.specificFilters.retrieveGenerics(all);
+        this.specificFilters.retrieveGenerics(allSet);
         // Retrieve filters with a regex-based hostname value
-        this.specificFilters.retrieveRegexBased(all, hostname, request.url);
+        this.specificFilters.retrieveRegexBased(allSet, hostname, request.url);
 
         // Split filters in different groups
-        const procedurals = new Set();
-        const exceptions = new Set();
-        for ( const s of all ) {
+        const proceduralSet = new Set();
+        const exceptionSet = new Set();
+        for ( const s of allSet ) {
             const selector = s.slice(1);
             if ( s.charCodeAt(0) === 0x2D /* - */ ) {
-                exceptions.add(selector);
+                exceptionSet.add(selector);
             } else if ( selector.charCodeAt(0) === 0x7B /* { */ ) {
-                procedurals.add(selector);
+                proceduralSet.add(selector);
             } else {
-                specifics.add(selector);
+                specificSet.add(selector);
             }
         }
 
         // Apply exceptions to specific filterset
-        if ( exceptions.size !== 0 ) {
-            out.exceptionFilters = Array.from(exceptions);
-            for ( const selector of specifics ) {
-                if ( exceptions.has(selector) === false ) { continue; }
-                specifics.delete(selector);
+        if ( exceptionSet.size !== 0 ) {
+            out.exceptionFilters = Array.from(exceptionSet);
+            for ( const selector of specificSet ) {
+                if ( exceptionSet.has(selector) === false ) { continue; }
+                specificSet.delete(selector);
                 out.exceptedFilters.push(selector);
             }
         }
 
-        if ( specifics.size !== 0 ) {
+        if ( specificSet.size !== 0 ) {
             injectedCSS.push(
-                `${Array.from(specifics).join(',\n')}\n{display:none!important;}`
+                `${Array.from(specificSet).join(',\n')}\n{display:none!important;}`
             );
         }
 
         // Apply exceptions to procedural filterset.
         // Also, some procedural filters are really declarative cosmetic
         // filters, so we extract and inject them immediately.
-        if ( procedurals.size !== 0 ) {
-            for ( const json of procedurals ) {
-                const pfilter = JSON.parse(json);
-                if ( exceptions.has(json) ) {
-                    procedurals.delete(json);
+        if ( proceduralSet.size !== 0 ) {
+            for ( const json of proceduralSet ) {
+                if ( exceptionSet.has(json) ) {
+                    proceduralSet.delete(json);
                     out.exceptedFilters.push(json);
                     continue;
                 }
-                if ( exceptions.has(pfilter.raw) ) {
-                    procedurals.delete(json);
+                const pfilter = JSON.parse(json);
+                if ( exceptionSet.has(pfilter.raw) ) {
+                    proceduralSet.delete(json);
                     out.exceptedFilters.push(pfilter.raw);
                     continue;
                 }
                 const cssRule = this.cssRuleFromProcedural(pfilter);
                 if ( cssRule === undefined ) { continue; }
                 injectedCSS.push(cssRule);
-                procedurals.delete(json);
+                proceduralSet.delete(json);
                 out.convertedProceduralFilters.push(json);
             }
-            out.proceduralFilters.push(...procedurals);
+            out.proceduralFilters.push(...proceduralSet);
         }
 
         // Highly generic cosmetic filters: sent once along with specific ones.
@@ -855,12 +852,12 @@ CosmeticFilteringEngine.prototype.retrieveSpecificSelectors = function(
                     str = { s: entry.str, excepted: [] };
                     let genericSet = entry.dict;
                     let hit = false;
-                    for ( const exception of exceptions ) {
+                    for ( const exception of exceptionSet ) {
                         if ( (hit = genericSet.has(exception)) ) { break; }
                     }
                     if ( hit ) {
                         genericSet = new Set(entry.dict);
-                        for ( const exception of exceptions ) {
+                        for ( const exception of exceptionSet ) {
                             if ( genericSet.delete(exception) ) {
                                 str.excepted.push(exception);
                             }
